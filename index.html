@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vamo7 - Mobilidade</title>
+
+<style>
+:root {
+    --primary: #276ef1;
+    --dark: #000;
+    --whatsapp: #25d366;
+    --gray: #f6f6f6;
+}
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0f0f0f;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    padding: 15px;
+}
+
+.app-container {
+    background: white;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0,0,0,.5);
+}
+
+.header {
+    background: var(--dark);
+    color: white;
+    padding: 25px;
+    text-align: center;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 24px;
+    letter-spacing: 4px;
+    font-weight: 800;
+}
+
+.content { padding: 20px; }
+
+.route-card {
+    background: var(--gray);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    font-size: 10px;
+    color: #888;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 10px 0;
+    font-size: 16px;
+    border-bottom: 1px solid #ddd;
+    outline: none;
+    margin-bottom: 15px;
+}
+
+input:focus { border-bottom-color: var(--primary); }
+
+.type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin: 15px 0;
+}
+
+.type-btn {
+    background: #fff;
+    border: 2px solid #eee;
+    padding: 12px 2px;
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: bold;
+    transition: .2s;
+}
+
+.type-btn.active {
+    border-color: var(--primary);
+    background: #eef4ff;
+    color: var(--primary);
+}
+
+#wait-area {
+    display: none;
+    background: #fffbe6;
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #ffe58f;
+    margin-bottom: 20px;
+}
+
+.price-display {
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid #eee;
+}
+
+.price-display span {
+    font-size: 14px;
+    color: #666;
+}
+
+.total-amount {
+    display: block;
+    font-size: 38px;
+    font-weight: 800;
+    margin-top: 5px;
+}
+
+.btn-send {
+    width: 100%;
+    background: var(--whatsapp);
+    color: white;
+    border: none;
+    padding: 18px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .3s;
+}
+
+.btn-send:hover { background: #1eb954; }
+
+.footer-info {
+    font-size: 11px;
+    color: #bbb;
+    text-align: center;
+    margin-top: 15px;
+}
+</style>
+</head>
+
+<body onload="calculate()">
+
+<div class="app-container">
+    <div class="header">
+        <h1>VAMO7</h1>
+    </div>
+
+    <div class="content">
+
+        <div class="route-card">
+            <label>Ponto de Partida</label>
+            <input id="origin" value="Nova Santa Rosa - PR" oninput="calculate()">
+
+            <label>Destino Final</label>
+            <input id="destiny" placeholder="Para onde vamos?" oninput="calculate()">
+        </div>
+
+        <label>Selecione o Serviço</label>
+        <div class="type-selector">
+            <div class="type-btn active" onclick="updateMode(this,'ida')">SOMENTE IDA</div>
+            <div class="type-btn" onclick="updateMode(this,'idavolta')">IDA E VOLTA</div>
+            <div class="type-btn" onclick="updateMode(this,'espera')">COM ESPERA</div>
+        </div>
+
+        <div id="wait-area">
+            <label>Tempo de espera (min)</label>
+            <input type="number" id="wait-minutes" value="60" min="0" oninput="calculate()">
+            <small style="color:#c09400">R$ 30,00 / hora (R$ 0,50/min)</small>
+        </div>
+
+        <div class="price-display">
+            <span id="route-preview">Estimativa da corrida</span>
+            <strong class="total-amount" id="total-price">R$ 0,00</strong>
+        </div>
+
+        <button class="btn-send" onclick="sendToWhatsApp()">
+            CHAMAR NO WHATSAPP
+        </button>
+
+        <p class="footer-info">Preços regionais estimados • Confirmação via WhatsApp</p>
+
+    </div>
+</div>
+
+<script>
+let currentMode = 'ida';
+const BASE_PRICE = 70;
+const IDA_VOLTA_PRICE = 130;
+const WAIT_TAX = 0.50;
+
+function updateMode(btn, mode) {
+    document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = mode;
+    document.getElementById('wait-area').style.display =
+        (mode === 'espera') ? 'block' : 'none';
+    calculate();
+}
+
+function calculate() {
+    const origin = document.getElementById('origin').value;
+    const destiny = document.getElementById('destiny').value;
+    let total = BASE_PRICE;
+
+    if (currentMode === 'idavolta') total = IDA_VOLTA_PRICE;
+
+    if (currentMode === 'espera') {
+        let minutes = Math.max(0, parseInt(document.getElementById('wait-minutes').value) || 0);
+        total = BASE_PRICE + (minutes * WAIT_TAX);
+    }
+
+    document.getElementById('route-preview').innerText =
+        `Estimativa: ${origin} → ${destiny || 'Destino'}`;
+
+    document.getElementById('total-price').innerText =
+        `R$ ${total.toFixed(2).replace('.', ',')}`;
+
+    return total.toFixed(2);
+}
+
+function sendToWhatsApp() {
+    const destiny = document.getElementById('destiny').value;
+    if (!destiny) {
+        alert("Informe o destino da corrida.");
+        return;
+    }
+
+    const origin = document.getElementById('origin').value;
+    const total = calculate();
+    const wait = document.getElementById('wait-minutes').value;
+
+    let modeText = "Somente Ida";
+    if (currentMode === 'idavolta') modeText = "Ida e Volta";
+    if (currentMode === 'espera') modeText = `Com Espera (${wait} min)`;
+
+    const msg =
+`*SOLICITAÇÃO VAMO7*
+📍 DE: ${origin}
+🏁 PARA: ${destiny}
+🚗 TIPO: ${modeText}
+💰 VALOR: R$ ${total}`;
+
+    const phone = "5545999209751";
+    window.location.href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+}
+</script>
+
+</body>
+</html>
